@@ -55,7 +55,6 @@
 
 ### ⏰ 每日定時執行
 - 每天 **07:50** 自動觸發備份流程
-- 四條備份路徑 **並行執行**，效率最佳化
 - 若要調整時間可直接編輯 Schedule Trigger 節點
 
 ---
@@ -65,7 +64,7 @@
 ### 1️⃣ 每日排程觸發
 **Every Day（Schedule Trigger）**
 - 每天早上 07:50 觸發
-- 同時啟動四條並行流程
+- 啟動四條備份流程
 
 ---
 
@@ -110,7 +109,7 @@
 ## 🚀 使用方式
 
 ### 1️⃣ 匯入 workflow JSON
-匯入 `[SYSTEM] Databases Auto Backup.json`。
+匯入 `n8n-auto-backup-workflow.json`。
 
 ### 2️⃣ 設定 Google Drive 認證  
 在以下節點設定你的 Google Drive OAuth2 認證：
@@ -121,16 +120,7 @@
 - **Delete Old Files**（刪除舊檔案）
 
 ### 3️⃣ 設定 Google Drive 資料夾 ID  
-修改各 Upload 節點的 `folderId`，指向你的備份資料夾：
-
-```js
-// 目前設定
-{
-  "Qdrant": "1ltO48I28vK8sk8f35MI1AR5fm-YqyPGl",
-  "Postgres": "1Gy-v7CdvAzhdT9TFEEdv_V4EmYjfZClr", 
-  "Workflows": "13PqpYac0doKW3P_j52a2-g9INpngselh"
-}
-```
+修改各 Upload 節點的 `folderId`，指向你的備份資料夾。
 
 ### 4️⃣ 設定 Qdrant API Key  
 確保環境變數 `QDRANT__SERVICE__API_KEY` 已正確設定。
