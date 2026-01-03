@@ -1,6 +1,6 @@
 # 💾 Databases Auto Backup – 全自動多資料庫雲端備份（n8n Workflow）
 
-此 workflow 建構於 **n8n**，可每天自動備份你的 n8n workflows、Qdrant 向量資料庫與 Postgres 資料庫，並上傳至 Google Drive 妥善保存。  
+此 workflow 建構於**自架的 n8n**，可每天自動備份你本機的 n8n workflows、Qdrant 向量資料庫（RAG 知識庫）與 Postgres 資料庫，並上傳至 Google Drive 妥善保存。  
 **Set and Forget** — 設定完成後無需任何手動介入，系統會自動執行備份與清理舊檔。
 
 ---
@@ -17,13 +17,13 @@
 
 ---
 
-## �️ Workflow 截圖
+## 🖼️ Workflow 截圖
 
 [![Workflow 截圖](screenshot.png)](screenshot.png)
 
 ---
 
-## �🔐 Credentials 需求
+## 🔐 Credentials 需求
 
 此 workflow 需要設定以下認證：
 
@@ -66,7 +66,7 @@
 
 > 💡 此容器會在每天午夜產生 `.sql.gz` 備份檔至 `./backups`，然後 auto-backup workflow 會在 07:50 讀取最新的備份並上傳到 Google Drive。
 
-> ⚠️ **如果你沒有使用 Postgres**，可以略過此設定，Postgres 備份流程會失敗但不影響其他備份。或是刪掉 Workflow 中的 Postgres 備份流程。
+> ⚠️ **如果你沒有使用 Postgres**，可以略過此設定，Postgres 備份流程會失敗但不影響其他備份。也可以直接刪掉 Workflow 中的 Postgres 備份流程。
 
 ---
 
