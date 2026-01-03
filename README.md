@@ -30,6 +30,12 @@
 
 ---
 
+## 🖼️ Workflow 截圖
+
+[![Workflow 截圖](screenshot.png)](screenshot.png)
+
+---
+
 ## ✨ 功能特色
 
 ### 🔄 三合一全自動備份
