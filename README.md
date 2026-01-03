@@ -1,6 +1,6 @@
 # 💾 Databases Auto Backup – 全自動多資料庫雲端備份（n8n Workflow）
 
-此 workflow 建構於**自架的 n8n**，可每天自動備份你本機的 n8n workflows、Qdrant 向量資料庫（RAG 知識庫）與 Postgres 資料庫，並上傳至 Google Drive 妥善保存。  
+此 workflow 專為 **Docker Compose 自架環境** 設計，可每天自動備份你本機的 n8n workflows、Qdrant 向量資料庫（RAG 知識庫）與 Postgres 資料庫，並上傳至 Google Drive 妥善保存。  
 **Set and Forget** — 設定完成後無需任何手動介入，系統會自動執行備份與清理舊檔。
 
 ---
@@ -20,74 +20,6 @@
 ## 🖼️ Workflow 截圖
 
 [![Workflow 截圖](screenshot.png)](screenshot.png)
-
----
-
-## 🔐 Credentials 需求
-
-此 workflow 需要設定以下認證：
-
-| Credential | 用途 | 設定方式 |
-|------------|------|----------|
-| **Google Drive OAuth2** | 上傳備份檔案、查詢/刪除舊檔案 | n8n Credentials → Google Drive → OAuth2 連線 |
-| **Qdrant API Key** | 存取 Qdrant REST API 建立與下載 snapshot | 透過環境變數 `QDRANT__SERVICE__API_KEY` 設定 |
-
-> ⚠️ **匯入注意**：此 workflow 匯入到新的 n8n 實例後，需要重新連結 Google Drive credential，因為 credential ID 是各實例獨立的。
-
----
-
-##  前置需求：Postgres 備份容器
-
-此 workflow 的 **Postgres 備份功能** 需要搭配外部備份容器使用。workflow 本身不會產生 SQL 備份，而是讀取已有的 `.sql.gz` 檔案並上傳至 Google Drive。
-
-請在 `docker-compose.yml` 中加入以下服務：
-
-```yaml
-  db-backup:
-    image: prodrigestivill/postgres-backup-local
-    restart: always
-    user: postgres:postgres
-    volumes:
-      - ./backups:/backups
-    links:
-      - postgres
-    depends_on:
-      - postgres
-    environment:
-      - POSTGRES_HOST=postgres
-      - POSTGRES_DB=n8n
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - SCHEDULE=@daily      # 每天午夜執行備份
-      - BACKUP_KEEP_DAYS=3   # 本地保留最近 3 天
-      - BACKUP_KEEP_WEEKS=0
-      - BACKUP_KEEP_MONTHS=0
-```
-
-> 💡 此容器會在每天午夜產生 `.sql.gz` 備份檔至 `./backups`，然後 auto-backup workflow 會在 07:50 讀取最新的備份並上傳到 Google Drive。
-
-> ⚠️ **如果你沒有使用 Postgres**，可以略過此設定，Postgres 備份流程會失敗但不影響其他備份。也可以直接刪掉 Workflow 中的 Postgres 備份流程。
-
----
-
-## 🐳 n8n 服務建議設定
-
-如果你重度使用 n8n，擔心 n8n 的 execution log 太多，可以在 `docker-compose.yml` 的 `n8n` 服務下新增以下環境變數，啟用自動清理：
-
-```yaml
-  n8n:
-    environment:
-      # === 自動清理 execution logs ===
-      - EXECUTIONS_DATA_PRUNE=true       # 開啟自動清理
-      - EXECUTIONS_DATA_MAX_AGE=168      # 保留最近 7 天 (168小時)
-      - EXECUTIONS_DATA_MAX_COUNT=1000   # 最多保留 1000 筆
-
-    volumes:
-      - n8n_data:/home/node/.n8n
-      - ./backups:/home/node/backups     # 讓 n8n 可以讀寫備份資料夾
-```
-
-> 💡 `./backups` 資料夾由 Docker 自動建立，用於存放 workflows 匯出檔及 Postgres 備份檔。
 
 ---
 
@@ -158,6 +90,74 @@
 - 定義三個備份資料夾（Qdrant、Postgres、Workflows）
 - 搜尋修改時間超過 7 天的檔案
 - 批次刪除舊檔案（移至垃圾桶）
+
+---
+
+##  前置需求：Postgres 備份容器
+
+此 workflow 的 **Postgres 備份功能** 需要搭配外部備份容器使用。workflow 本身不會產生 SQL 備份，而是讀取已有的 `.sql.gz` 檔案並上傳至 Google Drive。
+
+請在 `docker-compose.yml` 中加入以下服務：
+
+```yaml
+  db-backup:
+    image: prodrigestivill/postgres-backup-local
+    restart: always
+    user: postgres:postgres
+    volumes:
+      - ./backups:/backups
+    links:
+      - postgres
+    depends_on:
+      - postgres
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_DB=n8n
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - SCHEDULE=@daily      # 每天午夜執行備份
+      - BACKUP_KEEP_DAYS=3   # 本地保留最近 3 天
+      - BACKUP_KEEP_WEEKS=0
+      - BACKUP_KEEP_MONTHS=0
+```
+
+> 💡 此容器會在每天午夜產生 `.sql.gz` 備份檔至 `./backups`，然後 auto-backup workflow 會在 07:50 讀取最新的備份並上傳到 Google Drive。
+
+> ⚠️ **如果你沒有使用 Postgres**，可以略過此設定，Postgres 備份流程會失敗但不影響其他備份。也可以直接刪掉 Workflow 中的 Postgres 備份流程。
+
+---
+
+## 🐳 n8n 服務建議設定
+
+如果你重度使用 n8n，擔心 n8n 的 execution log 太多，可以在 `docker-compose.yml` 的 `n8n` 服務下新增以下環境變數，啟用自動清理：
+
+```yaml
+  n8n:
+    environment:
+      # === 自動清理 execution logs ===
+      - EXECUTIONS_DATA_PRUNE=true       # 開啟自動清理
+      - EXECUTIONS_DATA_MAX_AGE=168      # 保留最近 7 天 (168小時)
+      - EXECUTIONS_DATA_MAX_COUNT=1000   # 最多保留 1000 筆
+
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./backups:/home/node/backups     # 讓 n8n 可以讀寫備份資料夾
+```
+
+> 💡 `./backups` 資料夾由 Docker 自動建立，用於存放 workflows 匯出檔及 Postgres 備份檔。
+
+---
+
+## 🔐 Credentials 需求
+
+此 workflow 需要設定以下認證：
+
+| Credential | 用途 | 設定方式 |
+|------------|------|----------|
+| **Google Drive OAuth2** | 上傳備份檔案、查詢/刪除舊檔案 | n8n Credentials → Google Drive → OAuth2 連線 |
+| **Qdrant API Key** | 存取 Qdrant REST API 建立與下載 snapshot | 透過環境變數 `QDRANT__SERVICE__API_KEY` 設定 |
+
+> ⚠️ **匯入注意**：此 workflow 匯入到新的 n8n 實例後，需要重新連結 Google Drive credential，因為 credential ID 是各實例獨立的。
 
 ---
 
@@ -235,4 +235,4 @@ modifiedTime < '{{ $now.minus({days: 7}).toISO() }}'
 
 ---
 
-本 workflow 旨在提供 **Set and Forget** 的全自動備份體驗，確保你的 n8n 環境資料安全無虞，再也不用擔心意外遺失重要的 workflow 與資料庫內容。
+本 workflow 旨在為 **Docker Compose 自架環境** 提供 **Set and Forget** 的全自動備份體驗，確保你的自架環境資料安全無虞，再也不用擔心意外遺失重要的 workflow 與資料庫內容。
