@@ -1,0 +1,533 @@
+{
+  "name": "Databases Auto Backup",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 7,
+              "triggerAtMinute": 50
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -208,
+        224
+      ],
+      "id": "f858221d-53b5-483d-9c7b-25b5fc5074ab",
+      "name": "Every Day"
+    },
+    {
+      "parameters": {
+        "url": "http://qdrant:6333/collections",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "api-key",
+              "value": "={{ $env.QDRANT__SERVICE__API_KEY }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        16,
+        128
+      ],
+      "id": "62962152-a492-4edb-9747-4bfd5da021d7",
+      "name": "List All Collections"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "result.collections",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.itemLists",
+      "typeVersion": 2.1,
+      "position": [
+        240,
+        128
+      ],
+      "id": "5d1a04cc-50f1-4f2e-b48e-5fb01496f793",
+      "name": "Loop Collections"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://qdrant:6333/collections/{{ $json.name }}/snapshots",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "api-key",
+              "value": "={{ $env.QDRANT__SERVICE__API_KEY }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        464,
+        128
+      ],
+      "id": "2d11eda9-12ca-4ed0-91c6-6da90dea06f1",
+      "name": "Create Snapshot"
+    },
+    {
+      "parameters": {
+        "url": "=http://qdrant:6333/collections/{{ $('Loop Collections').item.json.name }}/snapshots/{{ $json.result.name }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "api-key",
+              "value": "={{ $env.QDRANT__SERVICE__API_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        688,
+        128
+      ],
+      "id": "6d73f9b4-6f35-46d6-b1ac-22021e97c43d",
+      "name": "Download Snapshot"
+    },
+    {
+      "parameters": {
+        "method": "DELETE",
+        "url": "=http://qdrant:6333/collections/{{ $('Loop Collections').item.json.name }}/snapshots/{{ $('Create Snapshot').item.json.result.name }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "api-key",
+              "value": "={{ $env.QDRANT__SERVICE__API_KEY }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1136,
+        128
+      ],
+      "id": "a03f0f8b-0ae3-47a7-b3f2-82f98d6016cc",
+      "name": "Delete Qdrant Temp"
+    },
+    {
+      "parameters": {
+        "name": "={{ new Date().toISOString().split('T')[0] }}-{{ $('Loop Collections').item.json.name }}.snapshot",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "<YOUR_QDRANT_FOLDER_ID>",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        912,
+        128
+      ],
+      "id": "ec63c93a-6dfa-4b67-9ba6-6c4fa371a8b6",
+      "name": "Upload file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "<YOUR_CREDENTIAL_ID>",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "執行備份順序：\n1. n8n workflows\n2. Qdrant collections\n3. Postgres\n4. 刪除七天以上的備份檔案",
+        "height": 224,
+        "width": 288
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -400,
+        -48
+      ],
+      "typeVersion": 1,
+      "id": "bd614672-4e15-4d99-b1da-5d9763c98e51",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "command": "mkdir -p /home/node/.n8n-files && LATEST=$(find /home/node/backups -type f -name \"*.sql.gz\" | xargs ls -t | head -n 1) && cp \"$LATEST\" /home/node/.n8n-files/temp_pg_backup.sql.gz && echo \"/home/node/.n8n-files/temp_pg_backup.sql.gz\""
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        16,
+        320
+      ],
+      "id": "e1a21915-664c-496b-8981-ab99029f71d0",
+      "name": "Find Latest Backup"
+    },
+    {
+      "parameters": {
+        "filePath": "={{ $json.stdout.trim() }}",
+        "dataPropertyName": "=data"
+      },
+      "type": "n8n-nodes-base.readBinaryFile",
+      "typeVersion": 1,
+      "position": [
+        240,
+        320
+      ],
+      "id": "ec009b53-66c6-48be-a3b1-7e3196b97361",
+      "name": "Read Backup File"
+    },
+    {
+      "parameters": {
+        "name": "={{ new Date().toISOString().split('T')[0] }}-postgres_backup.sql.gz",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "<YOUR_POSTGRES_FOLDER_ID>",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        464,
+        320
+      ],
+      "id": "1412769d-95a4-4a10-8c6a-2a61dcf36a6e",
+      "name": "Upload to GDrive",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "<YOUR_CREDENTIAL_ID>",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "command": "=mkdir -p /home/node/.n8n-files && FILENAME=\"n8n_workflows_$(date +%Y-%m-%d).json\" && n8n export:workflow --all --output=\"/home/node/backups/$FILENAME\" && cp \"/home/node/backups/$FILENAME\" \"/home/node/.n8n-files/temp_workflows.json\""
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        16,
+        -64
+      ],
+      "id": "ad35ab5e-999f-4034-9de8-c99d77a11007",
+      "name": "Export All Workflows"
+    },
+    {
+      "parameters": {
+        "filePath": "=/home/node/.n8n-files/temp_workflows.json"
+      },
+      "type": "n8n-nodes-base.readBinaryFile",
+      "typeVersion": 1,
+      "position": [
+        240,
+        -64
+      ],
+      "id": "913450ff-f405-4844-bb7b-ac0fad40ee2f",
+      "name": "Read JSON File"
+    },
+    {
+      "parameters": {
+        "name": "={{ new Date().toISOString().split('T')[0] }}_workflows.json",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "<YOUR_WORKFLOWS_FOLDER_ID>",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        464,
+        -64
+      ],
+      "id": "f7307329-2e8f-47f3-bcc2-0f01de9c2a45",
+      "name": "Upload to GDrive1",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "<YOUR_CREDENTIAL_ID>",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [\n  { json: { folderId: '<YOUR_QDRANT_FOLDER_ID>', name: 'Qdrant' } },\n  { json: { folderId: '<YOUR_POSTGRES_FOLDER_ID>', name: 'Postgres' } },\n  { json: { folderId: '<YOUR_WORKFLOWS_FOLDER_ID>', name: 'Workflows' } }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        16,
+        512
+      ],
+      "id": "4b59db78-0bc7-4857-b6f3-bd55ee4d63cc",
+      "name": "Define Folders"
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "searchMethod": "query",
+        "queryString": "=trashed = false and '{{ $json.folderId }}' in parents and modifiedTime < '{{ $now.minus({days: 7}).toISO() }}'",
+        "returnAll": true,
+        "filter": {},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        240,
+        512
+      ],
+      "id": "2580500d-52af-4a0c-875a-3d58d7e0f406",
+      "name": "Find Files > 7 Days",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "<YOUR_CREDENTIAL_ID>",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "deleteFile",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "options": {
+          "deletePermanently": false
+        }
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        464,
+        512
+      ],
+      "id": "e53e0a88-0669-44c1-84bd-065b4a8a7381",
+      "name": "Delete Old Files",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "<YOUR_CREDENTIAL_ID>",
+          "name": "Google Drive account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Every Day": {
+      "main": [
+        [
+          {
+            "node": "Export All Workflows",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "List All Collections",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Find Latest Backup",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Define Folders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List All Collections": {
+      "main": [
+        [
+          {
+            "node": "Loop Collections",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Collections": {
+      "main": [
+        [
+          {
+            "node": "Create Snapshot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Snapshot": {
+      "main": [
+        [
+          {
+            "node": "Download Snapshot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Snapshot": {
+      "main": [
+        [
+          {
+            "node": "Upload file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload file": {
+      "main": [
+        [
+          {
+            "node": "Delete Qdrant Temp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Latest Backup": {
+      "main": [
+        [
+          {
+            "node": "Read Backup File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Backup File": {
+      "main": [
+        [
+          {
+            "node": "Upload to GDrive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Export All Workflows": {
+      "main": [
+        [
+          {
+            "node": "Read JSON File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read JSON File": {
+      "main": [
+        [
+          {
+            "node": "Upload to GDrive1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Define Folders": {
+      "main": [
+        [
+          {
+            "node": "Find Files > 7 Days",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Files > 7 Days": {
+      "main": [
+        [
+          {
+            "node": "Delete Old Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false,
+    "errorWorkflow": "uqCjhtQ8uT5xGIC3"
+  },
+  "versionId": "05ce39e1-4a8a-43d7-821a-32732bec1a64",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f5e7c71cf7ecee3a104a00b5c768a477de150b7aa16ac5267746701c09527830"
+  },
+  "id": "bOmjPxyVfz2WgISf",
+  "tags": [
+    {
+      "updatedAt": "2025-12-14T07:39:01.749Z",
+      "createdAt": "2025-12-14T07:39:01.749Z",
+      "id": "Lh91EMmbrCHYVAbi",
+      "name": "SYSTEM"
+    }
+  ]
+}
